@@ -67,18 +67,12 @@ jobs:
       # - name: Generate Readme
       #   run: python readmeGen.py ${{steps.vars.outputs.fcount}}
 
-      # Step 5: Configure git for committing changes
-      - name: Set up Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Upload artifact
-        if: always()
-        uses: actions/upload-artifact@v4.3.0
-        with:
-          name: upload-pdf
-          path: ${{ github.workspace }}/q/*.pdf
+      # - name: Upload artifact
+      #   if: always()
+      #   uses: actions/upload-artifact@v4.3.0
+      #   with:
+      #     name: upload-pdf
+      #     path: ${{ github.workspace }}/q/*.pdf
 
       # Step 6: Commit and push the report and any generated files
       - name: Commit and push changes
@@ -86,6 +80,8 @@ jobs:
         run: |
           rm -f wkhtml* report ./tmpr || true
           ls -ltr
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git status
           git add *||true
           git commit -am "Add generated PDFs and report from GitHub Action"
