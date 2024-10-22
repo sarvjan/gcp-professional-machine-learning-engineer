@@ -78,7 +78,9 @@ jobs:
       - name: Commit and push changes
         if: always()
         run: |
-          rm -f wkhtmltox_0.12.6-1.bionic_amd64.deb || true
-          git add README.md report reprocess q/*.pdf||true
-          git commit -m "Add generated PDFs and report from GitHub Action"
+          rm -f wkhtml* || true
+          ls -ltr
+          git status
+          git add *||true
+          git commit -am "Add generated PDFs and report from GitHub Action"
           git push origin main
