@@ -79,10 +79,5 @@ jobs:
         if: always()
         run: |
           git add README.md report reprocess *.pdf||true
-          git commit -am"Update the change"
-          if git diff-index --quiet HEAD; then
-            echo "No changes to commit."
-          else
-            git commit -m "Add generated PDFs and report from GitHub Action"
-            git push origin main
-          fi
+          git commit -m "Add generated PDFs and report from GitHub Action"
+          git push origin main
