@@ -1,0 +1,45 @@
+name: README Generator
+
+on:
+  workflow_run:
+    workflows: [PDF Generator]
+    types:
+      - completed
+  
+permissions:
+  contents: write
+  
+jobs:
+  generate_pdfs:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Set output variables
+        id: vars
+        run: echo "fcount=$(ls q/*.pdf | sort -n -t- -k2 | tail -n 1 | grep -oE "[0-9]*")" >> $GITHUB_OUTPUT
+      
+      - name: Generate Readme
+        run: python readmeGen.py ${{steps.vars.outputs.fcount}}
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        if: always()
+        run: |
+          ls -ltr
+          git status
+          git add *||true
+          git commit -am "Add README.md from GitHub Action"
+          git push origin main
