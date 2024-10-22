@@ -35,6 +35,7 @@ jobs:
             echo "Input file not found! Exiting."
             exit 1
           fi
+          sed -i '/^$/d' "./source.txt"
 
       # Step 4: Execute wkhtmltopdf commands with delay and error reporting
       - name: Execute wkhtmltopdf commands with delay and error handling
