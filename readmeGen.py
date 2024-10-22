@@ -24,4 +24,4 @@ def generate_readme(max_number, columns=10):
         file.write(readme_content)
 
 # Example usage:
-generate_readme(sys.argv[0])  # Adjust this number to the number of files you have (e.g., 35, 80, 99, etc.)
+generate_readme(int(sys.argv[0]))  # Adjust this number to the number of files you have (e.g., 35, 80, 99, etc.)
