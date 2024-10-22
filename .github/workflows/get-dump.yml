@@ -1,7 +1,12 @@
 name: PDF Generator
 
+# on:
+#   workflow_dispatch:  # Allows manual triggering of the workflow
+
 on:
-  workflow_dispatch:  # Allows manual triggering of the workflow
+  push:
+    paths:
+      - 'source.txt'
   
 permissions:
   contents: write
