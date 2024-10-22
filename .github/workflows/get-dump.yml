@@ -66,7 +66,7 @@ jobs:
         run: echo "fcount=$(wc -l source.txt)" >> $GITHUB_OUTPUT
       
       - name: Generate Readme
-        run: python readmeGen.py ${{steps.vars.output.fcount}}
+        run: python readmeGen.py ${{steps.vars.outputs.fcount}}
 
       # Step 5: Configure git for committing changes
       - name: Set up Git
