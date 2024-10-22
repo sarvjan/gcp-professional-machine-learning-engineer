@@ -55,8 +55,8 @@ jobs:
               continue;
             fi 
           done < ./source.txt
-          mv *.pdf q/
-          grep -i error ./report >> $GITHUB_STEP_SUMMARY
+          mv *.pdf q/ || true
+          grep -i error ./report >> $GITHUB_STEP_SUMMARY || true
           
       - name: Set output variables
         id: vars
