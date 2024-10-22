@@ -46,7 +46,7 @@ jobs:
               fname=$(cat ./tmpr|head -n 1  | tr  ' ' '-').pdf ; 
               rm ./tmpr ;
               if ! bash -c "(echo _______ For line $((++i)) _____; wkhtmltopdf --no-stop-slow-scripts --javascript-delay 1000 $line $fname.pdf 2>&1 | tee -a ./report)"; then
-                echo "Error occurred: Rerun Line : $((++i)) >> ./report
+                echo "Error occurred: Rerun Line : $((++i))" >> ./report
               fi
               sleep $(shuf -i 3-8 -n 1)
             else 
