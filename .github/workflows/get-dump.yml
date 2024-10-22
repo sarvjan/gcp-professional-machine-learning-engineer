@@ -72,6 +72,7 @@ jobs:
 
       # Step 6: Commit and push the report and any generated files
       - name: Commit and push changes
+        if: always()
         run: |
           git add report reprocess *.pdf
           if git diff-index --quiet HEAD; then
