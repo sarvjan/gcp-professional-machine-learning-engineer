@@ -43,10 +43,10 @@ jobs:
           i=0
           while read line; do
             # Enhanced wkhtmltopdf command with error handling
-            if (wget -q -O - $line | grep -oE "question\s[0-9]+" > ./tmpr || echo $?); then 
+            wget -q -O - $line | grep -oE "question\s[0-9]+" > ./tmpr
+            if [ $? == 0 ] && [ "$(cat ./tmpr|head -n 1  | tr  ' ' '-')" != "" ];then
               fname=$(cat ./tmpr|head -n 1  | tr  ' ' '-').pdf ; 
               echo "file name : $fname ------>"
-              rm ./tmpr ;
               cp /dev/null ./report
               if ! bash -c "(echo _______ For line $((++i)) _____; echo 'CMD : wkhtmltopdf --no-stop-slow-scripts --javascript-delay 1000 $line $fname' ; wkhtmltopdf --no-stop-slow-scripts --javascript-delay 1000 $line $fname 2>&1 | tee -a ./report)"; then
                 echo "Error occurred: Rerun Line : $((++i))" >> ./report
@@ -57,15 +57,15 @@ jobs:
               continue;
             fi 
           done < ./source.txt
+          grep -i error ./report >> run_report.txt || true
           mv *.pdf q/ || true
-          grep -i error ./report >> $GITHUB_STEP_SUMMARY || true
           
-      - name: Set output variables
-        id: vars
-        run: echo "fcount=$(wc -l source.txt)" >> $GITHUB_OUTPUT
+      # - name: Set output variables
+      #   id: vars
+      #   run: echo "fcount=$(wc -l source.txt)" >> $GITHUB_OUTPUT
       
-      - name: Generate Readme
-        run: python readmeGen.py ${{steps.vars.outputs.fcount}}
+      # - name: Generate Readme
+      #   run: python readmeGen.py ${{steps.vars.outputs.fcount}}
 
       # Step 5: Configure git for committing changes
       - name: Set up Git
@@ -73,11 +73,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4.3.0
+        with:
+          name: upload-pdf
+          path: ${{ github.workspace }}/q/*.pdf
+
       # Step 6: Commit and push the report and any generated files
       - name: Commit and push changes
         if: always()
         run: |
-          rm -f wkhtml* || true
+          rm -f wkhtml* report ./tmpr || true
           ls -ltr
           git status
           git add *||true
