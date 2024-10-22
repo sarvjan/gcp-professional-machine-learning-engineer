@@ -1,4 +1,5 @@
 import sys
+print(sys.argv[0])
 
 def generate_readme(max_number, columns=10):
     rows = 10  # Fixed number of rows
