@@ -28,17 +28,17 @@ jobs:
         run: echo "fcount=$(ls q/*.pdf | sort -n -t- -k2 | tail -n 1 | grep -oE "[0-9]*")" >> $GITHUB_OUTPUT
       
       - name: Generate Readme
-        run: python readmeGen.py ${{steps.vars.outputs.fcount}}
-
-      - name: Set up Git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          cp /dev/null README.md
+          python readmeGen.py ${{steps.vars.outputs.fcount}}
+          echo -e "## Generated On\n$(date +'%Y-%m-%dT%H:%M:%S')" >> README.md
 
       - name: Commit and push changes
         if: always()
         run: |
           ls -ltr
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git status
           git add *||true
           git commit -am "Add README.md from GitHub Action"
