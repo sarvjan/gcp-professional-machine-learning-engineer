@@ -69,11 +69,7 @@ jobs:
             fi 
           done < ./source.txt
           grep -i error ./report >> run_report.txt || true
-          mv *.pdf q/ || true
 
-          if ! [ -s success_download.txt ];then
-            for i in $(cat success_download.txt); do sed -i -e "/"${i}"/d" ./source.txt ; done
-          fi
       # - name: Set output variables
       #   id: vars
       #   run: echo "fcount=$(wc -l source.txt)" >> $GITHUB_OUTPUT
@@ -92,6 +88,10 @@ jobs:
       - name: Commit and push changes
         if: always()
         run: |
+          mv *.pdf q/ || true
+          if ! [ -s success_download.txt ];then
+            for i in $(cat success_download.txt); do sed -i -e "/"${i}"/d" ./source.txt ; done
+          fi
           rm -f wkhtml* report ./tmpr success_download.txt || true
           ls -ltr
           git config --global user.name "github-actions[bot]"
