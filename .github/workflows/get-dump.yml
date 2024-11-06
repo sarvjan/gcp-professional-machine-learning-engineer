@@ -40,7 +40,7 @@ jobs:
             echo "Input file not found! Exiting."
             exit 1
           fi
-          sed -i '/^$/d' "./source.txt"
+          sed -i -e '/^$/d' "./source.txt"
 
       # Step 4: Execute wkhtmltopdf commands with delay and error reporting
       - name: Execute wkhtmltopdf commands with delay and error handling
@@ -85,7 +85,8 @@ jobs:
         if: always()
         run: |
           mv *.pdf q/ || true
-          if ! [ -s success_download.txt ];then
+          cat success_download.txt
+          if ! [[ -s success_download.txt ]];then
             cat success_download.txt
             for i in $(cat success_download.txt); do sed -i -e "/"${i}"/d" ./source.txt ; done
           fi
