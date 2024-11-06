@@ -60,7 +60,9 @@ jobs:
                 fi
                 if [ -f "./$fname" ];then
                   echo "Adding Entry to success_download.txt as file exist in current dir..."
+                  echo $line
                   echo $line | grep -oE 'view/[0-9]+' | tr -d 'view/' >> success_download.txt
+                  cat success_download.txt
                 fi
                 # random sleep
                 sleep $(shuf -i 3-8 -n 1)
