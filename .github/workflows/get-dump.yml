@@ -69,7 +69,9 @@ jobs:
               else
                 # Add to successfully downloaded file if the file already exist under "q" dir
                 echo "Adding Entry to success_download.txt as file exist in current q dir..."
+                echo $line
                 echo $line | grep -oE 'view/[0-9]+' | tr -d 'view/' >> success_download.txt
+                cat success_download.txt
               fi
             else 
               echo $line >> ./reprocess ;
