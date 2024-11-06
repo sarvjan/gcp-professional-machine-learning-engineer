@@ -86,7 +86,7 @@ jobs:
         run: |
           mv *.pdf q/ || true
           cat success_download.txt
-          if ! [[ -s success_download.txt ]];then
+          if [[ -s success_download.txt ]];then
             cat success_download.txt
             for i in $(cat success_download.txt); do sed -i -e "/"${i}"/d" ./source.txt ; done
           fi
