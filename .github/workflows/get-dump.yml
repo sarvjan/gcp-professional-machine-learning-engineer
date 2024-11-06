@@ -59,12 +59,14 @@ jobs:
                   echo "Error occurred: Rerun Line : $((++i))" >> ./report
                 fi
                 if [ -f "./$fname" ];then
+                  echo "Adding Entry to success_download.txt as file exist in current dir..."
                   echo $line | grep -oE 'view/[0-9]+' | tr -d 'view/' >> success_download.txt
                 fi
                 # random sleep
                 sleep $(shuf -i 3-8 -n 1)
               else
                 # Add to successfully downloaded file if the file already exist under "q" dir
+                echo "Adding Entry to success_download.txt as file exist in current q dir..."
                 echo $line | grep -oE 'view/[0-9]+' | tr -d 'view/' >> success_download.txt
               fi
             else 
@@ -80,6 +82,7 @@ jobs:
         run: |
           mv *.pdf q/ || true
           if ! [ -s success_download.txt ];then
+            cat success_download.txt
             for i in $(cat success_download.txt); do sed -i -e "/"${i}"/d" ./source.txt ; done
           fi
           rm -f wkhtml* report ./tmpr success_download.txt || true
