@@ -169,7 +169,8 @@
       <div
         style="padding:12px;border-bottom:1px solid #f3f7ff;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;flex-direction:column">
-          <strong style="font-size:16px">Questions <span
+          <strong style="font-size:16px;cursor:pointer;transition:color 0.2s" id="questionsHeader"
+            title="Click to show only answered questions">Questions <span
               style="font-weight:400;color:var(--muted);font-size:14px">(<span id="seenCount">0</span>/<span
                 id="totalCount">0</span>)</span></strong>
         </div>
@@ -216,6 +217,7 @@
     let flaggedFiles = {}; // Store flagged paths in localStorage
     let readQuestions = {}; // Store read status in localStorage
     let showFlaggedOnly = false;
+    let showReadOnly = false;
 
     // localStorage keys
     const STORAGE_KEY_FLAGS = 'flaggedQuestions';
@@ -233,15 +235,17 @@
       const container = document.getElementById('tiles');
       container.innerHTML = '';
 
-      // Apply filters (search + flag)
+      // Apply filters (search + flag + read)
       const query = document.getElementById('searchInput').value.toLowerCase().trim();
       let visibleCount = 0;
 
       files.forEach((f, i) => {
         const isFlagged = flaggedFiles[f.path];
+        const isRead = readQuestions[f.path];
 
         // Filter logic
         if (showFlaggedOnly && !isFlagged) return;
+        if (showReadOnly && !isRead) return;
 
         const seqNum = (i + 1).toString().padStart(3, '0');
         const text = (seqNum + ' ' + f.name).toLowerCase();
@@ -383,6 +387,20 @@
         btn.style.borderColor = '#ddd';
       }
 
+      renderTiles(flatFiles);
+    });
+
+    document.getElementById('questionsHeader').addEventListener('click', () => {
+      showReadOnly = !showReadOnly;
+      const header = document.getElementById('questionsHeader');
+
+      if (showReadOnly) {
+        header.style.color = '#1f6feb'; // Active color
+        header.title = "Click to show all questions";
+      } else {
+        header.style.color = ''; // Reset color
+        header.title = "Click to show only answered questions";
+      }
       renderTiles(flatFiles);
     });
 
