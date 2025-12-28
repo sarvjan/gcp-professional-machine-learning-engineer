@@ -1,0 +1,15 @@
+{
+  "name": "fileviewer",
+  "version": "1.0.0",
+  "description": "Serve local HTML and PDF files in browser with a simple web UI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build:static": "node build-static.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mime-types": "^2.1.35",
+    "pdfjs-dist": "^5.4.449"
+  }
+}

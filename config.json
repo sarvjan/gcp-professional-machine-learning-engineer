@@ -1,0 +1,7 @@
+{
+    "contentFolder": "q",
+    "port": 3000,
+    "appTitle": "Local File Viewer",
+    "themeColor": "#1f6feb",
+    "pageSize": 20
+}

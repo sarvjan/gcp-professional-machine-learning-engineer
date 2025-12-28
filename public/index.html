@@ -1,0 +1,529 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Local File Viewer</title>
+  <style>
+    :root {
+      --accent: #1f6feb;
+      --muted: #666
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial
+    }
+
+    header {
+      padding: 12px 16px;
+      background: var(--accent);
+      color: #fff
+    }
+
+    .app {
+      display: flex;
+      height: calc(100% - 64px);
+      min-height: 500px
+    }
+
+    .leftPane {
+      width: 320px;
+      min-width: 220px;
+      max-width: 80%;
+      border-right: 1px solid #eee;
+      overflow: auto;
+      background: #fbfdff;
+      display: flex;
+      flex-direction: column
+    }
+
+    .splitter {
+      width: 8px;
+      cursor: col-resize;
+      background: linear-gradient(90deg, #fafafa, #f2f7ff);
+    }
+
+    .rightPane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden
+    }
+
+    .tiles {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: auto;
+      flex: 1
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #eef6ff;
+      padding: 12px 16px;
+      border-radius: 6px;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease
+    }
+
+    .card:hover {
+      background: #f8fbff;
+      border-color: #d0e3ff
+    }
+
+    .card.active {
+      background: #eef6ff;
+      border-color: var(--accent);
+      box-shadow: 0 2px 4px rgba(31, 111, 235, 0.1)
+    }
+
+    .card.read {
+      background: #e6f7e6;
+      border-color: #90ee90
+    }
+
+    .card.read:hover {
+      background: #d4f1d4;
+      border-color: #7cdb7c
+    }
+
+    .card.read.active {
+      background: #c8ecc8;
+      border-color: #4caf50;
+      box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2)
+    }
+
+    .seq {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 16px;
+      min-width: 40px
+    }
+
+    .name {
+      color: #111;
+      font-size: 14px;
+      word-break: break-word;
+      flex: 1
+    }
+
+    .viewerHeader {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #fafcff
+    }
+
+    .viewerTitle {
+      font-weight: 600;
+      color: var(--accent);
+      flex: 1
+    }
+
+    .navBtn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease
+    }
+
+    .navBtn:hover:not(:disabled) {
+      background: #1557d0;
+      transform: translateY(-1px)
+    }
+
+    .navBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed
+    }
+
+    iframe.viewer-frame {
+      width: 100%;
+      height: 100%;
+      border: 0
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div id="leftPane" class="leftPane">
+      <div
+        style="padding:12px;border-bottom:1px solid #f3f7ff;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;flex-direction:column">
+          <strong style="font-size:16px">Questions <span
+              style="font-weight:400;color:var(--muted);font-size:14px">(<span id="seenCount">0</span>/<span
+                id="totalCount">0</span>)</span></strong>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="markAllUnreadBtn" class="navBtn"
+            style="padding:4px 8px;font-size:12px;display:flex;align-items:center;gap:4px;background:#fff;color:var(--muted);border:1px solid #ddd"
+            title="Mark all as unread">
+            Clear All
+          </button>
+          <button id="filterFlaggedBtn" class="navBtn"
+            style="padding:4px 8px;font-size:12px;display:flex;align-items:center;gap:4px;background:#fff;color:var(--muted);border:1px solid #ddd"
+            title="Show flagged only">
+            Show Flagged
+          </button>
+        </div>
+      </div>
+      <div style="padding: 12px; border-bottom: 1px solid #f3f7ff;">
+        <input type="text" id="searchInput" placeholder="Search questions..."
+          style="width: 100%; box-sizing: border-box; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none; transition: border-color 0.2s">
+      </div>
+      <div id="tiles" class="tiles">Loading tiles...</div>
+    </div>
+    <div id="splitter" class="splitter" title="Drag to resize"></div>
+    <div id="rightPane" class="rightPane">
+      <div class="viewerHeader">
+        <button id="prevBtn" class="navBtn" title="Previous Question">◀ Previous</button>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px">
+          <div id="viewerTitle" class="viewerTitle" style="flex:initial">Viewer</div>
+          <button id="flagBtn"
+            style="background:none;border:none;cursor:pointer;font-size:20px;opacity:0.3;transition:all 0.2s"
+            title="Flag for review">🚩</button>
+        </div>
+        <button id="nextBtn" class="navBtn" title="Next Question">Next ▶</button>
+      </div>
+      <div style="flex:1;overflow:hidden">
+        <iframe id="viewerFrame" class="viewer-frame" src="about:blank"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let flatFiles = [];
+    let currentIndex = -1;
+    let flaggedFiles = {}; // Store flagged paths in localStorage
+    let readQuestions = {}; // Store read status in localStorage
+    let showFlaggedOnly = false;
+
+    // localStorage keys
+    const STORAGE_KEY_FLAGS = 'flaggedQuestions';
+    const STORAGE_KEY_READ = 'readQuestions';
+
+    function dfsCollect(nodes, arr) {
+      if (!nodes) return;
+      for (const n of nodes) {
+        if (n.type === 'file') arr.push(n);
+        else if (n.type === 'directory') dfsCollect(n.children, arr);
+      }
+    }
+
+    function renderTiles(files) {
+      const container = document.getElementById('tiles');
+      container.innerHTML = '';
+
+      // Apply filters (search + flag)
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+      let visibleCount = 0;
+
+      files.forEach((f, i) => {
+        const isFlagged = flaggedFiles[f.path];
+
+        // Filter logic
+        if (showFlaggedOnly && !isFlagged) return;
+
+        const seqNum = (i + 1).toString().padStart(3, '0');
+        const text = (seqNum + ' ' + f.name).toLowerCase();
+        if (query && !text.includes(query)) return;
+
+        visibleCount++;
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        if (readQuestions[f.path]) {
+          card.classList.add('read');
+        }
+        card.dataset.index = i;
+        card.dataset.path = f.path;
+
+        const seq = document.createElement('div');
+        seq.className = 'seq';
+        seq.textContent = seqNum;
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = f.name;
+
+        // Flag indicator
+        if (isFlagged) {
+          const flag = document.createElement('span');
+          flag.textContent = '🚩';
+          flag.style.fontSize = '12px';
+          card.appendChild(flag);
+        }
+
+        card.addEventListener('click', (e) => {
+          // Toggle read state when clicking on the card
+          toggleReadState(f.path);
+          // Open in viewer
+          openInViewer(i);
+        });
+        card.appendChild(seq);
+        card.appendChild(name);
+        container.appendChild(card);
+      });
+
+      if (visibleCount === 0 && files.length > 0) {
+        container.innerHTML = '<div style="padding:20px;color:var(--muted);text-align:center">No matching questions found.</div>';
+      }
+    }
+
+    // Load state from localStorage
+    function loadFromStorage() {
+      try {
+        const flagsData = localStorage.getItem(STORAGE_KEY_FLAGS);
+        if (flagsData) flaggedFiles = JSON.parse(flagsData);
+
+        const readData = localStorage.getItem(STORAGE_KEY_READ);
+        if (readData) readQuestions = JSON.parse(readData);
+      } catch (e) {
+        console.error('Error loading from localStorage', e);
+      }
+    }
+
+    // Save flags to localStorage
+    function saveFlags() {
+      try {
+        localStorage.setItem(STORAGE_KEY_FLAGS, JSON.stringify(flaggedFiles));
+      } catch (e) {
+        console.error('Error saving flags to localStorage', e);
+      }
+    }
+
+    // Save read status to localStorage
+    function saveReadStatus() {
+      try {
+        localStorage.setItem(STORAGE_KEY_READ, JSON.stringify(readQuestions));
+      } catch (e) {
+        console.error('Error saving read status to localStorage', e);
+      }
+    }
+
+    function toggleFlag(path) {
+      const isFlagged = !flaggedFiles[path];
+
+      // Update flag state
+      if (isFlagged) flaggedFiles[path] = true;
+      else delete flaggedFiles[path];
+
+      saveFlags();
+      renderTiles(flatFiles);
+      updateViewerFlagBtn();
+    }
+
+    function toggleReadState(path) {
+      // Toggle read state
+      if (readQuestions[path]) {
+        delete readQuestions[path];
+      } else {
+        readQuestions[path] = true;
+      }
+      saveReadStatus();
+      updateCounts();
+      renderTiles(flatFiles);
+    }
+
+    function updateCounts() {
+      let seen = 0;
+      for (const f of flatFiles) {
+        if (readQuestions[f.path]) seen++;
+      }
+      document.getElementById('seenCount').textContent = seen;
+      document.getElementById('totalCount').textContent = flatFiles.length;
+    }
+
+    function updateViewerFlagBtn() {
+      const btn = document.getElementById('flagBtn');
+      if (currentIndex < 0) { btn.style.display = 'none'; return; }
+
+      const path = flatFiles[currentIndex].path;
+      const isFlagged = flaggedFiles[path];
+
+      btn.style.display = 'block';
+      btn.style.opacity = isFlagged ? '1' : '0.2';
+      btn.title = isFlagged ? 'Unflag question' : 'Flag question';
+    }
+
+    document.getElementById('flagBtn').addEventListener('click', () => {
+      if (currentIndex >= 0) toggleFlag(flatFiles[currentIndex].path);
+    });
+
+    document.getElementById('filterFlaggedBtn').addEventListener('click', (e) => {
+      showFlaggedOnly = !showFlaggedOnly;
+      const btn = e.currentTarget;
+
+      if (showFlaggedOnly) {
+        btn.style.background = 'var(--accent)';
+        btn.style.color = 'white';
+        btn.style.borderColor = 'var(--accent)';
+      } else {
+        btn.style.background = '#fff';
+        btn.style.color = 'var(--muted)';
+        btn.style.borderColor = '#ddd';
+      }
+
+      renderTiles(flatFiles);
+    });
+
+    document.getElementById('markAllUnreadBtn').addEventListener('click', () => {
+      // Clear all read questions
+      readQuestions = {};
+      saveReadStatus();
+      updateCounts();
+      renderTiles(flatFiles);
+    });
+
+    // ... existing resize logic ... .
+
+    // Resizable splitter between left tile pane and right viewer
+    const splitter = document.getElementById('splitter');
+    const leftPane = document.getElementById('leftPane');
+    const rightPane = document.getElementById('rightPane');
+    let isResizing = false;
+    splitter.addEventListener('pointerdown', (e) => {
+      isResizing = true; splitter.setPointerCapture(e.pointerId);
+      document.body.style.userSelect = 'none';
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!isResizing) return;
+      const appRect = document.querySelector('.app').getBoundingClientRect();
+      // compute new left width relative to app
+      let newWidth = e.clientX - appRect.left;
+      const min = 220; const max = appRect.width * 0.85;
+      newWidth = Math.max(min, Math.min(max, newWidth));
+      leftPane.style.width = newWidth + 'px';
+    });
+    window.addEventListener('pointerup', (e) => { if (isResizing) { isResizing = false; try { splitter.releasePointerCapture(e.pointerId); } catch { } document.body.style.userSelect = 'auto'; } });
+
+    function updateNavButtons() {
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      prevBtn.disabled = currentIndex <= 0;
+      nextBtn.disabled = currentIndex >= flatFiles.length - 1;
+    }
+
+    function openInViewer(index) {
+      if (index < 0 || index >= flatFiles.length) return;
+      currentIndex = index;
+      const f = flatFiles[index];
+      const iframe = document.getElementById('viewerFrame');
+
+      // open PDFs in the custom PDF.js viewer (no sidebar)
+      if (f.mime === 'application/pdf') {
+        iframe.src = '/pdf-viewer.html?path=' + encodeURIComponent(f.path);
+      } else {
+        iframe.src = '/file?path=' + encodeURIComponent(f.path);
+      }
+      document.getElementById('viewerTitle').textContent = f.name;
+
+      // highlight active
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+      const activeCard = document.querySelector(`.card[data-index="${index}"]`);
+      if (activeCard) {
+        activeCard.classList.add('active');
+        // Scroll the active card into view
+        activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      updateNavButtons();
+      updateViewerFlagBtn();
+    }
+
+    // Navigation button handlers
+    document.getElementById('prevBtn').addEventListener('click', () => {
+      if (currentIndex > 0) openInViewer(currentIndex - 1);
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (currentIndex < flatFiles.length - 1) openInViewer(currentIndex + 1);
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        openInViewer(currentIndex - 1);
+      } else if (e.key === 'ArrowRight' && currentIndex < flatFiles.length - 1) {
+        openInViewer(currentIndex + 1);
+      }
+    });
+
+    async function load() {
+      // Load config first
+      try {
+        const cfgRes = await fetch('/config');
+        if (cfgRes.ok) {
+          const config = await cfgRes.json();
+          if (config.appTitle) document.title = config.appTitle;
+          if (config.themeColor) document.documentElement.style.setProperty('--accent', config.themeColor);
+        }
+      } catch (e) {
+        console.warn('Failed to load external config', e);
+      }
+
+      const res = await fetch('/list');
+      if (!res.ok) { document.getElementById('tiles').textContent = 'Failed to list files'; return; }
+      const tree = await res.json();
+      flatFiles = [];
+      dfsCollect(tree, flatFiles);
+
+      loadFromStorage(); // Load flags and read status from localStorage
+
+      updateCounts();
+      renderTiles(flatFiles);
+      if (flatFiles.length) openInViewer(0);
+    }
+    load()
+      .catch(err => {
+        document.getElementById('tiles').innerHTML = `<div style="color:red;padding:20px">Error loading files: ${err.message}</div>`;
+      });
+
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', (e) => {
+      const query = e.target.value.toLowerCase().trim();
+      const cards = document.querySelectorAll('.card');
+      let visibleCount = 0;
+
+      cards.forEach(card => {
+        // Search in both the sequence number and the file name
+        const text = card.textContent.toLowerCase();
+        if (text.includes(query)) {
+          card.style.display = 'flex';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      // Update total count to show number of filtered results
+      document.getElementById('totalCount').textContent = visibleCount;
+    });
+
+    // Handle styling for search input focus
+    searchInput.addEventListener('focus', () => searchInput.style.borderColor = 'var(--accent)');
+    searchInput.addEventListener('blur', () => searchInput.style.borderColor = '#ddd');
+  </script>
+</body>
+
+</html>
