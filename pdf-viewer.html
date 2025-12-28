@@ -1,0 +1,330 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PDF Viewer</title>
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #9aaedb;
+    }
+
+    .toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      background: #f7fbff;
+      border-bottom: 1px solid #e6eefc;
+      z-index: 100;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .viewer {
+      position: absolute;
+      top: 49px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 16px;
+    }
+
+    .page-wrapper {
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      position: relative;
+      min-height: 200px;
+      min-width: 200px;
+    }
+
+    .page-wrapper canvas {
+      display: block;
+    }
+
+    button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #d0d7de;
+      background: white;
+      cursor: pointer;
+      font-size: 14px;
+      color: #24292f;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #f6f8fa;
+      border-color: #babbbd;
+    }
+
+    button:active {
+      background: #eff2f5;
+    }
+
+    .page-info {
+      font-size: 14px;
+      color: #57606a;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Navigation button hover effects */
+    #prevPage:hover,
+    #nextPage:hover {
+      background: rgba(0, 0, 0, 0.8) !important;
+      transform: translateY(-50%) scale(1.05);
+    }
+
+    #prevPage:active,
+    #nextPage:active {
+      background: rgba(0, 0, 0, 0.9) !important;
+      transform: translateY(-50%) scale(0.98);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="toolbar">
+    <div class="page-info"
+      style="font-weight:500;color:#333;margin-right:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+      id="fileName"></div>
+    <div class="page-info">Page <span id="pageNum">1</span> / <span id="pageCount">--</span></div>
+    <div style="flex:1"></div>
+    <button id="fitWidth" title="Fit to Width">Fit Width</button>
+    <button id="fitPage" title="Fit Entire Page">Fit Page</button>
+    <button id="zoomOut" title="Zoom Out">−</button>
+    <button id="zoomIn" title="Zoom In">+</button>
+  </div>
+
+  <div id="viewerContainer" class="viewer"
+    style="overflow-y:auto;overflow-x:hidden;position:relative;padding:0;display:flex;justify-content:center;align-items:center">
+    <div style="position:relative;display:inline-block">
+      <canvas id="pdfCanvas" style="background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.15);display:block"></canvas>
+    </div>
+  </div>
+
+  <!-- Navigation Buttons - Fixed to viewport, always visible -->
+  <button id="prevPage"
+    style="position:fixed;left:20px;top:50vh;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:20px 14px;border-radius:8px;cursor:pointer;font-size:28px;z-index:1000;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.3)"
+    title="Previous Page">◀</button>
+  <button id="nextPage"
+    style="position:fixed;right:20px;top:50vh;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;padding:20px 14px;border-radius:8px;cursor:pointer;font-size:28px;z-index:1000;transition:all 0.2s;box-shadow:0 2px 8px rgba(0,0,0,0.3)"
+    title="Next Page">▶</button>
+
+
+  <script type="module">
+    import * as pdfjsLib from '/lib/pdfjs/pdf.min.mjs';
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/lib/pdfjs/pdf.worker.min.mjs';
+
+    const params = new URLSearchParams(location.search);
+    const relPath = params.get('path') || '';
+    const pdfUrl = '/q/' + encodeURIComponent(relPath);
+
+    document.getElementById('fileName').textContent = relPath.split('/').pop();
+
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('viewerContainer');
+    const pageNumEl = document.getElementById('pageNum');
+    const pageCountEl = document.getElementById('pageCount');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+
+    let pdfDoc = null;
+    let pageNum = 1;
+    let scale = 1.25;
+    let rendering = false;
+
+    async function loadPdf() {
+      try {
+        container.innerHTML = '<div style="padding:20px;text-align:center">Loading PDF...</div>';
+
+        const resp = await fetch(pdfUrl);
+        if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status}`);
+        const buffer = await resp.arrayBuffer();
+
+        pdfDoc = await pdfjsLib.getDocument(buffer).promise;
+        pageCountEl.textContent = pdfDoc.numPages;
+
+        // Calculate initial scale to Fit Width (Default)
+        const firstPage = await pdfDoc.getPage(1);
+        const viewport = firstPage.getViewport({ scale: 1.0 });
+
+        const containerWidth = container.clientWidth || window.innerWidth;
+        // Minimal buffer for width
+        const availableWidth = containerWidth - 20;
+
+        // Scale to fit width (ignore height)
+        scale = Math.min(availableWidth / viewport.width, 3.0);
+
+        if (!Number.isFinite(scale) || scale < 0.5) scale = 0.8;
+
+        console.log(`Initial scale (Fit Width): ${scale.toFixed(2)}x`);
+
+        // Re-add canvas (buttons are already in HTML, no need to create them)
+        container.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:relative;display:inline-block;margin:0';
+        wrapper.appendChild(canvas);
+        container.appendChild(wrapper);
+
+        // Attach event listeners to the existing HTML buttons
+        const prevButton = document.getElementById('prevPage');
+        const nextButton = document.getElementById('nextPage');
+
+        if (prevButton) {
+          prevButton.onclick = () => goToPage(pageNum - 1);
+        }
+        if (nextButton) {
+          nextButton.onclick = () => goToPage(pageNum + 1);
+        }
+
+        pageNum = 1;
+        renderPage(pageNum);
+
+      } catch (err) {
+        container.innerHTML = `<div style="padding:20px;color:#d00;font-weight:bold;text-align:center">Error loading PDF: ${err.message}</div>`;
+        console.error(err);
+      }
+    }
+
+    let navigationType = 'button';
+
+    function goToPage(num) {
+      if (num < 1 || num > pdfDoc.numPages || rendering) return;
+      pageNum = num;
+      renderPage(pageNum);
+    }
+
+    async function renderPage(num) {
+      if (rendering) return;
+      rendering = true;
+
+      try {
+        const page = await pdfDoc.getPage(num);
+        const viewport = page.getViewport({ scale });
+
+        // Clear and reset canvas to prevent scale accumulation
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+
+        canvas.style.width = Math.floor(viewport.width) + 'px';
+        canvas.style.height = Math.floor(viewport.height) + 'px';
+
+        // Get fresh context and apply scale
+        const freshCtx = canvas.getContext('2d');
+        freshCtx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+        freshCtx.scale(dpr, dpr);
+
+        await page.render({ canvasContext: freshCtx, viewport }).promise;
+
+        pageNumEl.textContent = num;
+        updateNavButtons();
+
+      } catch (err) {
+        console.error(`Error rendering page ${num}:`, err);
+      } finally {
+        rendering = false;
+      }
+    }
+
+    function updateNavButtons() {
+      const prev = document.getElementById('prevPage');
+      const next = document.getElementById('nextPage');
+      if (prev) prev.style.display = pageNum <= 1 ? 'none' : 'block';
+      if (next) next.style.display = pageNum >= pdfDoc.numPages ? 'none' : 'block';
+    }
+
+    function updateScale(delta) {
+      const newScale = Math.max(0.5, Math.min(4.0, scale + delta));
+      if (newScale === scale) return;
+      scale = newScale;
+      renderPage(pageNum);
+    }
+
+    function fitToWidth() {
+      if (!pdfDoc || rendering) return;
+
+      // Scale based on WIDTH only
+      pdfDoc.getPage(pageNum).then(page => {
+        const viewport = page.getViewport({ scale: 1.0 });
+
+        const containerWidth = container.clientWidth || window.innerWidth;
+        // removing margins to fit strictly to width
+        const availableWidth = containerWidth - 20; // minimal buffer
+
+        // Scale to fit width
+        const newScale = Math.min(availableWidth / viewport.width, 3.0);
+
+        if (Number.isFinite(newScale) && newScale > 0.5) {
+          scale = newScale;
+          console.log(`Fit to width: ${scale.toFixed(2)}x`);
+          renderPage(pageNum);
+        }
+      });
+    }
+
+    function fitToPage() {
+      if (!pdfDoc || rendering) return;
+
+      pdfDoc.getPage(pageNum).then(page => {
+        // ALWAYS calculate from base scale 1.0 (unscaled dimensions)
+        const viewport = page.getViewport({ scale: 1.0 });
+
+        const containerWidth = container.clientWidth || window.innerWidth;
+        const containerHeight = container.clientHeight || window.innerHeight - 50;
+
+        // Calculate the base "fit" scale (without the 0.4 multiplier)
+        const fitScaleX = (containerWidth - 10) / viewport.width;
+        const fitScaleY = (containerHeight - 10) / viewport.height;
+        const baseFitScale = Math.min(fitScaleX, fitScaleY, 3.0);
+
+        // Target scale is exactly 40% of the fit scale
+        const targetScale = baseFitScale * 0.4;
+
+        // Stricter check: if we are within 1% of target, do nothing
+        if (Math.abs(scale - targetScale) < 0.01) {
+          console.log('Already at target fit-page scale');
+          return;
+        }
+
+        if (Number.isFinite(targetScale) && targetScale > 0.1) {
+          scale = targetScale;
+          console.log(`Fit to page (40%): ${scale.toFixed(4)}x (Base fits: ${baseFitScale.toFixed(4)})`);
+          renderPage(pageNum);
+        }
+      });
+    }
+
+    document.getElementById('fitWidth').addEventListener('click', fitToWidth);
+    document.getElementById('fitPage').addEventListener('click', fitToPage);
+    document.getElementById('zoomIn').addEventListener('click', () => updateScale(0.25));
+    document.getElementById('zoomOut').addEventListener('click', () => updateScale(-0.25));
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') goToPage(pageNum - 1);
+      if (e.key === 'ArrowRight') goToPage(pageNum + 1);
+    });
+
+    loadPdf();
+  </script>
+</body>
+
+</html>
